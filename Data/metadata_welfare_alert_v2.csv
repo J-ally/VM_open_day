@@ -1,0 +1,10 @@
+calf,Date,welfare status,alert
+1451,07/03/2023,Healthy,Nothing to report
+1443,07/03/2023,Super healthy,Nothing to report
+1403,07/03/2023,Not healthy,Nothing to report
+1451,08/03/2023,Healthy,Nothing to report
+1443,08/03/2023,Super healthy,Nothing to report
+1403,08/03/2023,Not healthy,Nothing to report
+1451,09/03/2023,Not healthy,Moved from healthy to not healthy without apparent reason
+1443,09/03/2023,Super healthy,Nothing to report
+1403,09/03/2023,Healthy,Welfare status improvement !

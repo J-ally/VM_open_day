@@ -1,0 +1,347 @@
+---
+title: "VistaMilk"
+runtime: shiny
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: fill
+    logo: img/logo3.png
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(lubridate)
+library(shiny)
+library(plotly)
+library(tidyverse)
+library(htmltools)
+library(ggpubr)
+```
+
+<style>                     
+.navbar {
+  background-color:#002244;
+  border-color:#002244;
+}
+.section.sidebar {
+  background-color: #03C988;
+  color:white;
+
+}
+
+.navbar .navbar-nav > .active > a,
+.navbar .navbar-nav > .active > a:hover,
+.navbar .navbar-nav > .active > a:focus,
+.navbar .navbar-nav > li > a:hover,
+.navbar .navbar-nav > li > a:focus{
+    background: #03C988;
+}
+
+.nav-tabs-custom > .nav-tabs > li.active {border-top-color: #00ABC1}
+}
+
+</style>  
+
+```{r data_functions, cache=TRUE}
+bio <- read.csv("Data/bio.csv")
+ncows <- nrow(bio)
+AX3 <- vector('list', ncows)
+for(i in 1:ncows){
+  AX3[[i]] <- read.csv(paste0("Data/AX3_",bio[i,1],".csv"), as.is = T)
+  AX3[[i]]$DateTime <- as_datetime( AX3[[i]]$DateTime, format = "%d/%m/%Y %H: %M: %S")
+}
+breeds <- unique(bio["breed"])
+coat_colrs <- unique(bio["coat_color"])
+pens <- unique(bio["pen"])
+sex <- c('M', 'F')
+calves <- unique(bio["calf_ID"])
+curr_date <- max(ymd_hms(AX3[[1]][["DateTime"]]))
+
+colrs_sch <- read.csv("Data/color_scheme.csv")
+colrs_sch <- colrs_sch[order(colrs_sch$behaviours),]
+behaviours <-  colrs_sch$behaviours
+colrs_sch = colrs_sch$colour
+
+behaviours_metrics <- read.csv("Data/behaviour_metrics.csv")
+behaviours_metrics <- behaviours_metrics[order(behaviours_metrics$behaviour),]
+behaviours_metrics$Date <- as_date(behaviours_metrics$Date, format = "%d/%m/%Y")
+
+welfare_score <- read.csv("Data/welfare_score.csv")
+welfare_score$Date <- as_date(welfare_score$Date, format = "%d/%m/%Y")
+
+welfare_alert <- read.csv("Data/metadata_welfare_alert_v2.csv")
+welfare_alert$Date <- as_date(welfare_alert$Date, format = "%d/%m/%Y")
+
+```
+
+
+```{r reactive}
+get_calf_data <- reactive({
+  df <- AX3[[which(bio[,1] == as.integer(input$calfID))]]
+  df <- df %>% filter(as_date(DateTime) == as_date(input$date))
+  return(df)
+})
+
+get_calf_bio <- reactive({
+  df <- bio %>% filter(calf_ID == input$calfID)
+  return(df)
+})
+
+get_act_summ <- reactive({
+  df <- AX3[[which(bio[,1] == as.integer(input$calfID))]]
+  df <- df %>% filter(as_date(DateTime) == as_date(input$date))
+  df <- as.data.frame(table(df$label))
+  return(df)
+})
+
+get_behv_met <- reactive({
+  df <- behaviours_metrics 
+  df <- df %>% filter(Date == as_date(input$date) & calf == as.integer(input$calfID))
+  df$time_budget_perc = round(df$time_budget/sum(df$time_budget),2)*100
+  return(df)
+})
+
+get_welfare_score <- reactive({
+  df <- welfare_score
+  df <- df %>% filter(Date == as_date(input$date) & calf == as.integer(input$calfID))
+  return(df)
+})
+
+get_welfare_alert <- reactive({
+  df <- welfare_alert
+  df <- df %>% filter(Date == as_date(input$date) & calf == as.integer(input$calfID))
+  df <- df$alert
+  return(df)
+  })
+
+```
+
+
+
+Calves Stats
+=====================
+
+Inputs {.sidebar}
+-----------------------------------------------------------------------
+```{r select_calf}
+ selectInput("calfID", label = h3("Calf"), 
+    choices = calves, 
+    selected = calves[1])
+```
+
+```{r select_date}
+dateInput("date", label = h3("Date"), value = curr_date, min = "2023-03-07", max = "2023-03-09")
+```
+
+
+Row {data-height=180}
+---------------------
+
+### 
+
+```{r}
+output[["image"]] <- renderImage({
+  calf_bio <- get_calf_bio()
+  jpgfile <- paste0("img/cattles/",calf_bio$calf_ID[1],".jpg")
+  # style = "margin: 0px; padding: 0px; align: center"
+  # img(jpgfile, align = "center")
+  div( img(jpgfile), style = "display: block; margin-left: auto; margin-right: auto;")
+  width  <- session$clientData$output_image_width
+  height <- session$clientData$output_iamge_height
+  img(jpgfile, height = height, width = width)
+  list(src = jpgfile, height = height, width = width, align="center")
+})
+imageOutput("image")
+```
+
+###
+
+```{r}
+renderValueBox({
+  calf_bio <- get_calf_bio()
+  dob <- calf_bio$DOB
+  valueBox(h3("Date of birth (Age in weeks)"), 
+           value = paste0(dob," (", as.integer((today() - dmy(dob))/7)," weeks)"), 
+           color = "#0F6C7B")
+})
+```
+
+###
+
+```{r}
+renderValueBox({
+  calf_bio <- get_calf_bio()
+  calf_breed <- calf_bio$breed
+  valueBox(h3("Calf Breed (Sex)"), 
+           value = paste0(calf_breed, " (", as.character(calf_bio$sex),")"),
+           color = "#0F6C7B")
+})
+```
+
+###
+
+```{r}
+renderValueBox({
+  calf_bio <- get_calf_bio()
+  calf_colrs <- calf_bio$coat_color
+  valueBox(h3("Coat Color"), 
+           value = calf_colrs, 
+           color = "#0F6C7B")
+})
+```
+
+###
+
+```{r}
+renderValueBox({
+  calf_bio <- get_calf_bio()
+  calf_pen <- calf_bio$pen
+  valueBox(h3("Pen Number"), 
+           value = calf_pen, 
+           color = "#0F6C7B")
+})
+```
+
+
+
+
+
+Row {.tabset .tabset-fade}
+---------------------
+
+### **Welfare Alert**
+```{r alert}
+
+renderTable({
+  table_ <- get_welfare_alert()
+  head(table_, n = 5)
+})
+```
+
+
+### **Raw Activity Data**
+
+```{r raw_plot}
+renderPlotly({
+  calf_data <- get_calf_data()
+  calf_data$ind <- 1:nrow(calf_data)
+  fig <- plot_ly(x=~(calf_data$DateTime), y =~ calf_data$Amag, type = "scatter", mode = "lines")
+  fig <- fig %>% layout(font = list(family = "Arial", size = 20), 
+                        xaxis = list(title = 'Time'),
+                        yaxis = list(title = 'Acceleration'))
+})
+
+```
+
+
+### **Behaviour Over Time**
+
+```{r time_plot}
+
+renderPlot({
+  calf_data <- get_calf_data()
+  fig3 <- ggplot(calf_data, aes(x = (calf_data$DateTime), y=Amag)) + 
+  geom_line(aes(colour=color, group=1), size = 1.25) + 
+  scale_colour_identity( name = "Behaviours", label = behaviours, breaks = colrs_sch, guide = "legend") + 
+  labs(x = "Time", y = "Acceleration")+ 
+  # scale_color_manual(name='Behaviour',
+  #                    breaks=behaviours,
+  #                    values = c("Grooming" = "#64e2a2", "Sniffing/exploring" = "#00194C", "Resting lying" = "plum", "Eating" = "#0F6C7B", "Ruminating"="#7ABC32", "Resting Standing"="lightcoral", "Playing"="#12A1C8" ))+
+  theme(text = element_text(size = 20))
+  fig3
+    
+})
+
+```
+
+
+
+### **Behaviour Summary**
+
+
+```{r pie_chart}
+
+renderPlot({
+  calf_behv_met <- get_behv_met()
+  
+  p1 <- ggplot(calf_behv_met, aes(behaviour, bouts_number, fill = behaviour))+
+    geom_bar(stat = "identity") + 
+    ggtitle("Number of Sessions")+xlab  ("")+ ylab("Number of Sessions")+
+    theme_bw()+
+    coord_flip()+
+    scale_fill_manual(values = colrs_sch)+
+    geom_text(aes(y = bouts_number + 3, label = bouts_number), color = "black", size = 5)+
+    theme(legend.position = "none", 
+          panel.border = element_blank(), 
+          plot.title = element_text(size = 15, face = "bold",hjust = 0.5),
+          axis.ticks.y = element_blank(),
+          axis.title.x = element_text(size = 15),
+          axis.text.y = element_text(size = 15, face = 'bold'))
+  
+  
+  p2 <- ggplot(calf_behv_met, aes(behaviour, bouts_duration, fill = behaviour))+
+    geom_bar(stat = "identity") + 
+    ggtitle("Average Session Duration")+xlab  ("")+ ylab("Minutes")+
+    theme_bw()+
+    coord_flip()+
+    scale_fill_manual(values = colrs_sch)+
+    geom_text(aes(y = bouts_duration + 3, label = round(bouts_duration,2)), color = "black", size = 5)+
+    theme(legend.position = "none", 
+          panel.border = element_blank(), 
+          plot.title = element_text(size = 15, face = "bold", hjust = 0.5),
+          axis.ticks.y = element_blank(),
+          axis.title.x = element_text(size = 15),
+          axis.text.y = element_blank())
+    
+  p3 <- ggplot(calf_behv_met,aes(x = "", y = time_budget_perc, fill = behaviour))+
+    geom_col(color = "white")+
+    ggtitle("Time Budget")+
+    coord_polar(theta = "y") +
+    geom_text(aes(label = paste0(time_budget_perc,"%", sep = "")),
+              position = position_stack(vjust = 0.5), col = "white", size = 5) +
+    theme_void() +
+    scale_fill_manual(values = colrs_sch)+ 
+    theme(plot.title = element_text(size = 15, face = "bold", hjust = 0.5),
+          legend.position="bottom", legend.direction="vertical", 
+          legend.text = element_text(size = 13),
+          legend.title = element_text(size = 15))
+  
+  
+  
+  ggarrange(p3, p1, p2, nrow = 1, widths = c(1,1.2,1))
+})
+```
+
+
+### **Welfare Status**
+
+```{r welfare_score}
+renderPlotly({
+  calf_welfare <- get_welfare_score()
+  fig <- plot_ly(
+    type = "indicator",
+    mode = "gauge+number",
+    value = calf_welfare$score[1],
+    title = list(text = "Welfare Score", font = list(size = 25)),
+    gauge = list(
+      axis = list(range = list(NULL, 4), tickwidth = 1, tickcolor = "#00688B"),
+      bar = list(color = "#00688B"),
+      bgcolor = "white",
+      borderwidth = 2,
+      bordercolor = "gray",
+      steps = list(
+        list(range = c(-1, 1), color = "#8B0000"),
+        list(range = c(1, 2), color = "#F17806"),
+        list(range = c(2, 3), color = "#FFD700"),
+        list(range = c(3, 4), color = "#008B45"))
+      )) 
+  fig <- fig %>%
+    layout(
+      margin = list(l=20,r=30, t = 90),
+      font = list(color = "#00688B", family = "Arial", size = 25, face="bold"))
+  
+  fig
+})
+# renderDataTable()
+```
+

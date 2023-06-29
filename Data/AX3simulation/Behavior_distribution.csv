@@ -1,0 +1,10 @@
+behavior,not_healthy_time,not_healthy_duration_bouts,not_healthy_nb_bouts,healthy_time,healthy_duration_bouts,healthy_nb_bouts,super_healthy_time,super_healthy_duration_bouts,super_healthy_nb_bouts
+Resting lying,806,10,80,543,30,18,374,60,7
+Resting Standing,202,10,20.2,292,10,30,202,10,20
+Playing,28.8,7.2,4,115.2,14.4,8,115.2,10,12
+Grooming,43.2,2.16,20,115.2,3.84,30,100.8,2,50
+Ruminating,0,10,0,79.2,15,5.28,255.6,30,8.5
+Eating,57.6,5,26.4,129.6,11,24.48,244.8,15,16
+Sniffing/exploring,172.8,5.76,30,144,7.2,20,144,5,30
+Abnormal Behavior,115.2,7.68,15,14.4,3.6,4,0,0,0
+Rising/lying-down,14.4,0.14,101,7.2,0.15,48,3.6,0.13,27
